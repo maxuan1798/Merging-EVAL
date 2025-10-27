@@ -2,7 +2,6 @@ from torch.utils.data import Dataset, DataLoader
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import argparse
-from datasets import load_dataset
 from tqdm import tqdm
 import pandas as pd
 import os
