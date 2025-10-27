@@ -212,11 +212,13 @@ if [ -n "$SWANLAB_INDEX_URL" ]; then
         if [[ "$SWANLAB_INDEX_URL" == http://* ]]; then
             echo "Using HTTP source, adding trusted-host: $SWANLAB_HOST"
             uv pip install --trusted-host "$SWANLAB_HOST" \
-                --extra-index-url "$SWANLAB_INDEX_URL" swanlab==0.8.0 || \
+                --extra-index-url "$SWANLAB_INDEX_URL" "swanlab[dashboard]" --prerelease=allow || \
+            uv pip install "swanlab[dashboard]" --prerelease=allow || \
             uv pip install swanlab
         else
             # HTTPS source
-            uv pip install --extra-index-url "$SWANLAB_INDEX_URL" swanlab==0.8.0 || \
+            uv pip install --extra-index-url "$SWANLAB_INDEX_URL" "swanlab[dashboard]" --prerelease=allow || \
+            uv pip install "swanlab[dashboard]" --prerelease=allow || \
             uv pip install swanlab
         fi
     else
@@ -224,20 +226,32 @@ if [ -n "$SWANLAB_INDEX_URL" ]; then
         if [[ "$SWANLAB_INDEX_URL" == http://* ]]; then
             echo "Using HTTP source, adding trusted-host: $SWANLAB_HOST"
             $PYTHON_CMD -m pip install --trusted-host "$SWANLAB_HOST" \
-                --extra-index-url "$SWANLAB_INDEX_URL" swanlab==0.8.0 || \
+                --extra-index-url "$SWANLAB_INDEX_URL" "swanlab[dashboard]" --prerelease=allow || \
+            $PYTHON_CMD -m pip install "swanlab[dashboard]" --prerelease=allow || \
             $PYTHON_CMD -m pip install swanlab
         else
             # HTTPS source
-            $PYTHON_CMD -m pip install --extra-index-url "$SWANLAB_INDEX_URL" swanlab==0.8.0 || \
+            $PYTHON_CMD -m pip install --extra-index-url "$SWANLAB_INDEX_URL" "swanlab[dashboard]" --prerelease=allow || \
+            $PYTHON_CMD -m pip install "swanlab[dashboard]" --prerelease=allow || \
             $PYTHON_CMD -m pip install swanlab
         fi
     fi
 else
     echo "Installing swanlab from standard source..."
-    $PIP_INSTALL_CMD "swanlab[dashboard]" 2>/dev/null || {
-        echo "Warning: SwanLab installation failed, trying without dashboard..."
-        $PIP_INSTALL_CMD swanlab 2>/dev/null || true
-    }
+    if [ -n "$UV_ENV_NAME" ]; then
+        # 使用uv安装swanlab[dashboard]，支持预发布版本
+        echo "Installing swanlab[dashboard] with uv..."
+        uv pip install "swanlab[dashboard]" --prerelease=allow 2>/dev/null || {
+            echo "Warning: SwanLab[dashboard] installation failed, trying without dashboard..."
+            uv pip install swanlab 2>/dev/null || true
+        }
+    else
+        # 使用传统pip安装
+        $PIP_INSTALL_CMD "swanlab[dashboard]" --prerelease=allow 2>/dev/null || {
+            echo "Warning: SwanLab[dashboard] installation failed, trying without dashboard..."
+            $PIP_INSTALL_CMD swanlab 2>/dev/null || true
+        }
+    fi
 fi
 
 # 准备路径
