@@ -1,17 +1,18 @@
 #!/bin/bash
 # 自动化模型评估脚本
 # 自动从GitHub下载代码，从HuggingFace下载模型，并执行评估
-# 支持Conda虚拟环境
+# 支持UV虚拟环境
 
 set -e
 
 # ========================================
 # 用户配置 - 修改这些参数
 # ========================================
-# Conda环境配置
-CONDA_ENV_NAME="dev_eval_env"              # Conda环境名称，留空则不使用conda
+# UV环境配置
+UV_ENV_NAME="dev_eval_env"              # UV环境名称
 CREATE_ENV_IF_NOT_EXISTS=true          # 如果环境不存在是否自动创建
 PYTHON_VERSION="3.10"                  # 创建新环境时使用的Python版本
+UV_ENV_DIR="./.venv"                   # UV环境目录（相对于脚本路径）
 
 # HuggingFace模型仓库地址
 MODEL_URL="microsoft/DialoGPT-medium"  # 修改为您的模型地址
@@ -48,73 +49,45 @@ REPO_URL="https://github.com/maxuan1798/Merging-EVAL.git"
 WORK_DIR="./eval_workspace"
 REPO_DIR="$WORK_DIR/Merging-EVAL"
 
-# Conda环境设置
-if [ -n "$CONDA_ENV_NAME" ]; then
-    echo "Setting up Conda environment: $CONDA_ENV_NAME"
+# UV环境设置
+if [ -n "$UV_ENV_NAME" ]; then
+    echo "Setting up UV environment: $UV_ENV_NAME"
 
-    # 初始化conda（支持多种安装方式）
-    CONDA_BASE=""
-    CONDA_SH=""
-
-    # 方法1: 从CONDA_EXE环境变量获取（最可靠）
-    if [ -n "$CONDA_EXE" ] && [ -f "$CONDA_EXE" ]; then
-        CONDA_BASE=$(dirname $(dirname "$CONDA_EXE"))
-        CONDA_SH="${CONDA_BASE}/etc/profile.d/conda.sh"
-    fi
-
-    # 方法2: 尝试从PATH中找到conda
-    if [ -z "$CONDA_SH" ] || [ ! -f "$CONDA_SH" ]; then
-        CONDA_PATH=$(which conda 2>/dev/null || true)
-        if [ -n "$CONDA_PATH" ] && [ -f "$CONDA_PATH" ]; then
-            CONDA_BASE=$(dirname $(dirname "$CONDA_PATH"))
-            CONDA_SH="${CONDA_BASE}/etc/profile.d/conda.sh"
-        fi
-    fi
-
-    # 方法3: 检查常见安装位置
-    if [ -z "$CONDA_SH" ] || [ ! -f "$CONDA_SH" ]; then
-        for base_dir in "$HOME/miniconda3" "$HOME/anaconda3" "$HOME/miniconda" "$HOME/anaconda" "/opt/conda" "/opt/miniconda3" "/opt/anaconda3"; do
-            if [ -f "${base_dir}/etc/profile.d/conda.sh" ]; then
-                CONDA_BASE="$base_dir"
-                CONDA_SH="${base_dir}/etc/profile.d/conda.sh"
-                break
-            fi
-        done
-    fi
-
-    # 验证是否找到conda.sh
-    if [ -z "$CONDA_SH" ] || [ ! -f "$CONDA_SH" ]; then
-        echo "Error: Could not locate conda installation."
-        echo "Please ensure conda is installed and either:"
-        echo "  1. Run 'conda init bash' and restart your shell, or"
-        echo "  2. Set CONDA_ENV_NAME to empty to use system Python"
+    # 检查uv是否安装
+    if ! command -v uv &> /dev/null; then
+        echo "Error: uv is not installed."
+        echo "Please install uv first:"
+        echo "  curl -LsSf https://astral.sh/uv/install.sh | sh"
+        echo "  or visit: https://docs.astral.sh/uv/getting-started/installation/"
         exit 1
     fi
 
-    # Source conda.sh
-    echo "Found conda at: $CONDA_BASE"
-    source "$CONDA_SH"
+    # 获取脚本所在目录的绝对路径
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    UV_ENV_FULL_PATH="$SCRIPT_DIR/$UV_ENV_DIR"
 
     # 检查环境是否存在
-    if conda env list | grep -q "^${CONDA_ENV_NAME} "; then
-        echo "Activating existing environment: $CONDA_ENV_NAME"
-        conda activate "$CONDA_ENV_NAME"
+    if [ -d "$UV_ENV_FULL_PATH" ]; then
+        echo "Activating existing UV environment: $UV_ENV_FULL_PATH"
+        source "$UV_ENV_FULL_PATH/bin/activate"
     else
         if [ "$CREATE_ENV_IF_NOT_EXISTS" = true ]; then
-            echo "Creating new Conda environment: $CONDA_ENV_NAME with Python $PYTHON_VERSION"
-            conda create -n "$CONDA_ENV_NAME" python="$PYTHON_VERSION" -y
-            conda activate "$CONDA_ENV_NAME"
+            echo "Creating new UV environment: $UV_ENV_FULL_PATH with Python $PYTHON_VERSION"
+            cd "$SCRIPT_DIR"
+            uv venv "$UV_ENV_DIR" --python "$PYTHON_VERSION"
+            source "$UV_ENV_FULL_PATH/bin/activate"
+            cd - > /dev/null
         else
-            echo "Error: Conda environment '$CONDA_ENV_NAME' not found."
+            echo "Error: UV environment '$UV_ENV_FULL_PATH' not found."
             echo "Set CREATE_ENV_IF_NOT_EXISTS=true to auto-create it."
             exit 1
         fi
     fi
 
     PYTHON_CMD="python"
-    echo "Using Conda Python: $(which python)"
+    echo "Using UV Python: $(which python)"
 else
-    # 不使用conda，使用系统Python
+    # 不使用uv，使用系统Python
     PYTHON_CMD="python3"
     command -v python3 &> /dev/null || PYTHON_CMD="python"
     echo "Using system Python: $(which $PYTHON_CMD)"
@@ -125,10 +98,10 @@ mkdir -p "$WORK_DIR"
 
 # 克隆或更新代码仓库
 if [ -d "$REPO_DIR" ]; then
-    echo "Updating repository..."
-    cd "$REPO_DIR"
-    git pull -q origin main 2>/dev/null || (cd .. && rm -rf Merging-EVAL && git clone -q "$REPO_URL")
-    cd - > /dev/null
+    echo "Repository already exists, skipping update to preserve modifications..."
+    # cd "$REPO_DIR"
+    # git pull -q origin main 2>/dev/null || (cd .. && rm -rf Merging-EVAL && git clone -q "$REPO_URL")
+    # cd - > /dev/null
 else
     echo "Cloning repository..."
     cd "$WORK_DIR"
@@ -137,18 +110,93 @@ else
 fi
 
 # 安装依赖（使用 requirements-minimal.txt）
-PIP_INSTALL_CMD="$PYTHON_CMD -m pip install "
-if [ -n "$PIP_INDEX_URL" ]; then
-    echo "Using pip mirror: $PIP_INDEX_URL"
-    PIP_INSTALL_CMD="$PIP_INSTALL_CMD -i $PIP_INDEX_URL"
+if [ -n "$UV_ENV_NAME" ]; then
+    # 使用uv安装包
+    UV_INSTALL_CMD="uv pip install"
+    if [ -n "$PIP_INDEX_URL" ]; then
+        echo "Using pip mirror: $PIP_INDEX_URL"
+        UV_INSTALL_CMD="$UV_INSTALL_CMD -i $PIP_INDEX_URL"
+    fi
+    PIP_INSTALL_CMD="$UV_INSTALL_CMD"
+else
+    # 使用传统pip安装包
+    PIP_INSTALL_CMD="$PYTHON_CMD -m pip install "
+    if [ -n "$PIP_INDEX_URL" ]; then
+        echo "Using pip mirror: $PIP_INDEX_URL"
+        PIP_INSTALL_CMD="$PIP_INSTALL_CMD -i $PIP_INDEX_URL"
+    fi
 fi
 
-if [ -f "$REPO_DIR/requirements-minimal.txt" ]; then
-    echo "Installing dependencies from requirements-minimal.txt..."
-    $PIP_INSTALL_CMD -r "$REPO_DIR/requirements-minimal.txt" 2>/dev/null || true
-else
-    echo "Warning: requirements-minimal.txt not found, installing packages individually..."
-    $PIP_INSTALL_CMD torch transformers datasets pandas tqdm requests 2>/dev/null || true
+# 函数：验证关键依赖是否安装成功
+check_critical_dependencies() {
+    echo "Verifying critical dependencies..."
+    local missing_deps=()
+    
+    # 检查 torch
+    if ! $PYTHON_CMD -c "import torch" 2>/dev/null; then
+        missing_deps+=("torch")
+    fi
+    
+    # 检查 transformers
+    if ! $PYTHON_CMD -c "import transformers" 2>/dev/null; then
+        missing_deps+=("transformers")
+    fi
+    
+    # 检查 datasets（可选，跳过检查）
+    echo "Note: datasets library skipped to avoid pyarrow dependency issues"
+    
+    # 检查 accelerate
+    if ! $PYTHON_CMD -c "import accelerate" 2>/dev/null; then
+        missing_deps+=("accelerate")
+    fi
+    
+    if [ ${#missing_deps[@]} -gt 0 ]; then
+        echo "Error: Missing critical dependencies: ${missing_deps[*]}"
+        return 1
+    else
+        echo "All critical dependencies are installed."
+        return 0
+    fi
+}
+
+# 跳过 requirements-minimal.txt 安装（避免 pyarrow 依赖问题）
+echo "Skipping requirements-minimal.txt installation to avoid pyarrow dependency issues..."
+echo "Installing critical packages individually..."
+
+# 直接安装关键包
+DEPENDENCIES_INSTALLED=false
+
+# 安装 PyTorch (需要 2.6+ 版本解决安全漏洞)
+echo "Installing PyTorch (version 2.6+ for security)..."
+if ! $PIP_INSTALL_CMD torch>=2.6.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu; then
+    echo "Failed to install PyTorch from official source, trying with mirror..."
+    $PIP_INSTALL_CMD "torch>=2.6.0" torchvision torchaudio || {
+        echo "Error: Failed to install PyTorch. Please check your internet connection and try again."
+        exit 1
+    }
+fi
+
+# 安装其他关键依赖（跳过 pyarrow，使用 pandas 内置的 parquet 支持）
+echo "Installing other dependencies..."
+$PIP_INSTALL_CMD transformers pandas tqdm requests numpy scipy accelerate || {
+    echo "Error: Failed to install some dependencies. Please check your internet connection and try again."
+    exit 1
+}
+
+# 跳过 datasets 安装（避免 pyarrow 依赖问题，对于模型评估不是必需的）
+echo "Skipping datasets installation (not required for model evaluation)..."
+echo "Note: Will use direct JSON file loading instead of datasets library"
+
+# 跳过 PyArrow 安装（避免构建问题，对于模型评估不是必需的）
+echo "Skipping PyArrow installation (not required for model evaluation)..."
+echo "Note: Some datasets features may be limited without PyArrow"
+
+DEPENDENCIES_INSTALLED=true
+
+# 验证关键依赖
+if ! check_critical_dependencies; then
+    echo "Error: Critical dependencies are missing. Please check the installation logs above."
+    exit 1
 fi
 
 # 安装swanlab（可能从自定义源）
@@ -159,20 +207,37 @@ if [ -n "$SWANLAB_INDEX_URL" ]; then
     SWANLAB_HOST=$(echo "$SWANLAB_INDEX_URL" | sed -E 's|^https?://([^/:]+).*|\1|')
 
     # Try to install swanlab from custom index with fallback to PyPI
-    # Use --trusted-host for HTTP sources and --extra-index-url to allow fallback
-    if [[ "$SWANLAB_INDEX_URL" == http://* ]]; then
-        echo "Using HTTP source, adding trusted-host: $SWANLAB_HOST"
-        $PYTHON_CMD -m pip install --trusted-host "$SWANLAB_HOST" \
-            --extra-index-url "$SWANLAB_INDEX_URL" swanlab==0.8.0 || \
-        $PYTHON_CMD -m pip install swanlab
+    if [ -n "$UV_ENV_NAME" ]; then
+        # 使用uv安装
+        if [[ "$SWANLAB_INDEX_URL" == http://* ]]; then
+            echo "Using HTTP source, adding trusted-host: $SWANLAB_HOST"
+            uv pip install --trusted-host "$SWANLAB_HOST" \
+                --extra-index-url "$SWANLAB_INDEX_URL" swanlab==0.8.0 || \
+            uv pip install swanlab
+        else
+            # HTTPS source
+            uv pip install --extra-index-url "$SWANLAB_INDEX_URL" swanlab==0.8.0 || \
+            uv pip install swanlab
+        fi
     else
-        # HTTPS source
-        $PYTHON_CMD -m pip install --extra-index-url "$SWANLAB_INDEX_URL" swanlab==0.8.0 || \
-        $PYTHON_CMD -m pip install swanlab
+        # 使用传统pip安装
+        if [[ "$SWANLAB_INDEX_URL" == http://* ]]; then
+            echo "Using HTTP source, adding trusted-host: $SWANLAB_HOST"
+            $PYTHON_CMD -m pip install --trusted-host "$SWANLAB_HOST" \
+                --extra-index-url "$SWANLAB_INDEX_URL" swanlab==0.8.0 || \
+            $PYTHON_CMD -m pip install swanlab
+        else
+            # HTTPS source
+            $PYTHON_CMD -m pip install --extra-index-url "$SWANLAB_INDEX_URL" swanlab==0.8.0 || \
+            $PYTHON_CMD -m pip install swanlab
+        fi
     fi
 else
     echo "Installing swanlab from standard source..."
-    $PIP_INSTALL_CMD swanlab 2>/dev/null || true
+    $PIP_INSTALL_CMD "swanlab[dashboard]" 2>/dev/null || {
+        echo "Warning: SwanLab installation failed, trying without dashboard..."
+        $PIP_INSTALL_CMD swanlab 2>/dev/null || true
+    }
 fi
 
 # 准备路径
