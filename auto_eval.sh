@@ -15,32 +15,37 @@ PYTHON_VERSION="3.10"                  # 创建新环境时使用的Python版本
 UV_ENV_DIR="./.venv"                   # UV环境目录（相对于脚本路径）
 
 # HuggingFace模型仓库地址
-MODEL_URL="microsoft/DialoGPT-medium"  # 修改为您的模型地址
+MODEL_URL="https://huggingface.co/microsoft/DialoGPT-medium"  # 修改为您的模型地址
 
 # 评估数据集 (可选: algebra, analysis, discrete, geometry, number_theory, all)
 DATASET="all"
 
 # Callback配置
-CALLBACK_URL=""
-TASK_ID="eval_task_$(date +%s)"
-MODEL_ID=""  # 留空则自动从MODEL_URL提取，或手动指定模型ID
+CALLBACK_URL="http://147.8.92.70:22222/api/evaluate/callback"
+TASK_ID="eval_task_700e1c076ccb_sub_task_0x160CF80E381fa6FF4Ea0C26CF4949c9Ef509C660"
+MODEL_ID="gpt2-1b-user_696"  # 留空则自动从MODEL_URL提取，或手动指定模型ID
 BENCHMARK_ID="math_problems"
-API_KEY=""  # 留空使用默认值，或设置为您的API Key
+API_KEY="cg_1f308c96ff56b74b895dbc744fa7ccc5e6d186331db0b001edccfe6c164db5d3"  # 留空使用默认值，或设置为您的API Key
 
 # 评估参数
 BATCH_SIZE=8
 MAX_LENGTH=2048
 
 # SwanLab模式配置 (可选: local, cloud, disabled)
-SWANLAB_MODE="local"  # local=本地存储, cloud=云端存储, disabled=禁用SwanLab
+SWANLAB_MODE="host"  # local=本地存储, cloud=云端存储, disabled=禁用SwanLab
 
 # PIP镜像源配置 (可选，用于加速下载)
 PIP_INDEX_URL="https://pypi.tuna.tsinghua.edu.cn/simple"  # 留空则使用默认源
 
 # SwanLab自定义源配置 (可选，用于从私有源安装swanlab)
-SWANLAB_INDEX_URL=""  # 留空则使用PIP_INDEX_URL或默认源
+SWANLAB_INDEX_URL="http://147.8.92.70:22281/simple/"  # 留空则使用PIP_INDEX_URL或默认源
 # SwanLab API Key配置
-export SWANLAB_API_KEY=""
+export SWANLAB_API_KEY="UvToZaQqzO0cb6eK9himpTUiQoATxMKYb2Wc_0gqGP8"
+export SWANLAB_BASE_URL="http://150.109.44.110:22224"
+
+# HuggingFace镜像配置 (可选，使用 hf-mirror 加速下载)
+USE_HF_MIRROR=true  # 设置为 true 使用 hf-mirror，设置为 false 使用官方源
+HF_MIRROR_URL="https://hf-mirror.com"  # hf-mirror 地址
 
 # =======================================
 # 自动执行部分 - 无需修改
@@ -168,12 +173,31 @@ DEPENDENCIES_INSTALLED=false
 
 # 安装 PyTorch (需要 2.6+ 版本解决安全漏洞)
 echo "Installing PyTorch (version 2.6+ for security)..."
-if ! $PIP_INSTALL_CMD torch>=2.6.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu; then
-    echo "Failed to install PyTorch from official source, trying with mirror..."
-    $PIP_INSTALL_CMD "torch>=2.6.0" torchvision torchaudio || {
-        echo "Error: Failed to install PyTorch. Please check your internet connection and try again."
-        exit 1
-    }
+if [ -n "$UV_ENV_NAME" ]; then
+    # 使用uv安装PyTorch，先尝试官方源
+    if ! uv pip install torch>=2.6.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu; then
+        echo "Failed to install PyTorch from official source, trying with mirror..."
+        if [ -n "$PIP_INDEX_URL" ]; then
+            uv pip install torch>=2.6.0 torchvision torchaudio -i $PIP_INDEX_URL || {
+                echo "Error: Failed to install PyTorch. Please check your internet connection and try again."
+                exit 1
+            }
+        else
+            uv pip install "torch>=2.6.0" torchvision torchaudio || {
+                echo "Error: Failed to install PyTorch. Please check your internet connection and try again."
+                exit 1
+            }
+        fi
+    fi
+else
+    # 使用传统pip安装
+    if ! $PYTHON_CMD -m pip install torch>=2.6.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu; then
+        echo "Failed to install PyTorch from official source, trying with mirror..."
+        $PIP_INSTALL_CMD "torch>=2.6.0" torchvision torchaudio || {
+            echo "Error: Failed to install PyTorch. Please check your internet connection and try again."
+            exit 1
+        }
+    fi
 fi
 
 # 安装其他关键依赖（跳过 pyarrow，使用 pandas 内置的 parquet 支持）
@@ -262,6 +286,20 @@ CACHE_DIR="$REPO_DIR/cache/$TASK_ID"
 
 mkdir -p "$OUTPUT_DIR"
 mkdir -p "$CACHE_DIR"
+
+# 设置 HuggingFace 镜像（如果需要）
+if [ "$USE_HF_MIRROR" = true ]; then
+    echo "Using HuggingFace mirror: $HF_MIRROR_URL"
+    export HF_ENDPOINT="$HF_MIRROR_URL"
+    
+    # 将 MODEL_URL 从 huggingface.co 转换为 hf-mirror.com
+    if [[ "$MODEL_URL" == *"huggingface.co"* ]]; then
+        MODEL_URL="${MODEL_URL//huggingface.co/hf-mirror.com}"
+        echo "Converted MODEL_URL to mirror: $MODEL_URL"
+    fi
+else
+    echo "Using official HuggingFace source"
+fi
 
 # 显示配置信息
 echo "Starting evaluation..."
