@@ -25,6 +25,7 @@ CALLBACK_URL=""
 TASK_ID=""
 MODEL_ID=""  # 留空则自动从MODEL_URL提取，或手动指定模型ID
 BENCHMARK_ID=""
+BENCHMARK_INDICES=""
 API_KEY=""  # 留空使用默认值，或设置为您的API Key
 
 # 评估参数
@@ -337,7 +338,8 @@ if [ "$DATASET" = "all" ]; then
         --max_length $MAX_LENGTH \
         --batch_size $BATCH_SIZE \
         --use_swanlab \
-        --swanlab_mode "$SWANLAB_MODE" # 2>&1 | grep -E "(Evaluation|Callback|Error|✅|❌|Final)"
+        --swanlab_mode "$SWANLAB_MODE" \
+        --indices $BENCHMARK_INDICES # 2>&1 | grep -E "(Evaluation|Callback|Error|✅|❌|Final)"
 else
     echo "Evaluating single dataset: $DATASET"
     # 评估单个数据集
@@ -356,7 +358,8 @@ else
         --max_length $MAX_LENGTH \
         --batch_size $BATCH_SIZE \
         --use_swanlab \
-        --swanlab_mode "$SWANLAB_MODE" # 2>&1 | grep -E "(Evaluation|Callback|Error|✅|❌|Final)"
+        --swanlab_mode "$SWANLAB_MODE" \
+        --indices $BENCHMARK_INDICES # 2>&1 | grep -E "(Evaluation|Callback|Error|✅|❌|Final)"
 fi
 
 if [ $? -eq 0 ]; then
