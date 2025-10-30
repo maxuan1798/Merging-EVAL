@@ -185,3 +185,6 @@ logs/
 outputs/
 checkpoints/
 results/
+merged_qwen_model_output_average_merging/
+merged_qwen_model_output_task_arithmetic/
+api/

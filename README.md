@@ -216,6 +216,71 @@ Avg.,0.6289,average
 Overall,0.6289,overall
 ```
 
+## PyPI Package Distribution
+
+This project is available as a Python package on PyPI for easy installation and distribution.
+
+### Package Information
+
+- **Package Name**: `merging-eval`
+- **Version**: 0.1.0
+- **Description**: Model merging algorithms and scaling laws for large language models
+- **License**: MIT
+- **Python**: >=3.8
+
+### Installation
+
+#### From PyPI
+```bash
+pip install merging-eval
+```
+
+#### With Full Dependencies
+```bash
+pip install "merging-eval[full]"
+```
+
+#### Development Installation
+```bash
+git clone https://github.com/Merging-EVAL/Merging-EVAL.git
+cd Merging-EVAL
+pip install -e .
+```
+
+### Package Features
+
+The package provides comprehensive model merging and evaluation capabilities:
+
+```python
+import merge
+from merge import MergingMethod, FlopsCounter
+
+# Available merging methods
+merging_methods = [
+    "average_merging",      # Equal-weight averaging
+    "task_arithmetic",      # Task vector arithmetic
+    "ties_merging",         # TIES merging algorithm
+    "ties_merging_dare",    # TIES with DARE variant
+    "mask_merging"          # Mask-based merging
+]
+```
+
+### Publishing to PyPI
+
+#### Local Development
+```bash
+./build_and_test.sh
+```
+
+#### Publishing
+1. **Setup credentials**: Copy `.pypirc.template` to `~/.pypirc` and add API tokens
+2. **Test PyPI**: `./publish_to_pypi.sh test`
+3. **Production PyPI**: `./publish_to_pypi.sh production`
+
+#### Automated Publishing
+- GitHub Actions automatically publishes on new releases
+- Update version in `pyproject.toml` and create GitHub release
+
 ## Troubleshooting
 
 ### Model Merging Issues
@@ -241,7 +306,7 @@ Overall,0.6289,overall
 1. **NaN Loss Values**: Usually caused by very long sequences or all-masked labels
    - Solution: Increase `max_length` or check data format
 
-2. **GPU Memory Issues**: 
+2. **GPU Memory Issues**:
    - Reduce `batch_size` to 1
    - Decrease `max_length`
    - Use specific GPU with `--gpu_id`
