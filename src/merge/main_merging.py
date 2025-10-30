@@ -13,11 +13,34 @@ def main():
     print(f"Scaling coefficient is {args.scaling_coefficient}")
     device = "cuda" if args.use_gpu else "cpu"
     print(f"Merging conducted on {device}")
-    base_model = AutoModelForCausalLM.from_pretrained(args.base_model, torch_dtype=torch.bfloat16).to(device)
-    tokenizer = AutoTokenizer.from_pretrained(args.base_model)
+    
+    # 使用离线模式加载基础模型
+    print("Loading base model in offline mode...")
+    base_model = AutoModelForCausalLM.from_pretrained(
+        args.base_model, 
+        torch_dtype=torch.bfloat16,
+        local_files_only=True,  # 强制使用本地文件
+        trust_remote_code=True
+    ).to(device)
+    
+    # 使用离线模式加载tokenizer
+    print("Loading tokenizer in offline mode...")
+    tokenizer = AutoTokenizer.from_pretrained(
+        args.base_model,
+        local_files_only=True,  # 强制使用本地文件
+        trust_remote_code=True
+    )
+    
+    # 加载候选模型
     candidate_models = []
-    for model_to_merge in models_to_merge:
-        candidate_models.append(AutoModelForCausalLM.from_pretrained(model_to_merge, torch_dtype=torch.bfloat16).to(device))
+    for i, model_to_merge in enumerate(models_to_merge):
+        print(f"Loading candidate model {i+1}/{len(models_to_merge)}: {os.path.basename(model_to_merge)}")
+        candidate_models.append(AutoModelForCausalLM.from_pretrained(
+            model_to_merge, 
+            torch_dtype=torch.bfloat16,
+            local_files_only=True,  # 强制使用本地文件
+            trust_remote_code=True
+        ).to(device))
     merging_engine = MergingMethod(merging_method_name=args.merge_method)
     if args.weight_mask_rates is not None:
         weight_mask_rates = args.weight_mask_rates.split(",")
