@@ -4,6 +4,7 @@ import os
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from .merging_methods import MergingMethod
+from ..config import get_hf_config
 
 
 def main():
@@ -18,6 +19,13 @@ def main():
     arg_parser.add_argument("--use_gpu", action='store_true', default=False)
     arg_parser.add_argument("--mask_apply_method", type=str, default="average_merging")
     arg_parser.add_argument("--weight_mask_rates", type=str, default=None)
+    # HF authentication arguments
+    arg_parser.add_argument("--hf_token", type=str, default=None,
+                          help="Hugging Face token for authentication")
+    arg_parser.add_argument("--use_hf_auth", action='store_true', default=False,
+                          help="Use Hugging Face authentication (will use cached token if available)")
+    arg_parser.add_argument("--local_files_only", action='store_true', default=False,
+                          help="Use only local files (no network access)")
     args = arg_parser.parse_args()
 
     models_to_merge = args.models_to_merge.split(",")
@@ -26,33 +34,56 @@ def main():
     print(f"Scaling coefficient is {args.scaling_coefficient}")
     device = "cuda" if args.use_gpu else "cpu"
     print(f"Merging conducted on {device}")
-    
-    # 使用离线模式加载基础模型
-    print("Loading base model in offline mode...")
+
+    # Initialize HF configuration
+    hf_config = get_hf_config(token=args.hf_token, use_auth=args.use_hf_auth)
+
+    # Prepare model loading kwargs
+    model_kwargs = {
+        'torch_dtype': torch.bfloat16,
+        'trust_remote_code': True
+    }
+
+    # Add authentication kwargs if needed
+    if not args.local_files_only:
+        model_kwargs.update(hf_config.get_model_loading_kwargs())
+    else:
+        model_kwargs['local_files_only'] = True
+        print("Running in local files only mode")
+
+    # Add authentication info to print
+    if hf_config.should_use_auth():
+        print("Using Hugging Face authentication")
+        if hf_config.get_token():
+            print("HF token provided")
+
+    # Load base model
+    print("Loading base model...")
     base_model = AutoModelForCausalLM.from_pretrained(
-        args.base_model, 
-        torch_dtype=torch.bfloat16,
-        local_files_only=True,  # 强制使用本地文件
-        trust_remote_code=True
+        args.base_model,
+        **model_kwargs
     ).to(device)
-    
-    # 使用离线模式加载tokenizer
-    print("Loading tokenizer in offline mode...")
+
+    # Load tokenizer
+    print("Loading tokenizer...")
+    tokenizer_kwargs = {'trust_remote_code': True}
+    if not args.local_files_only:
+        tokenizer_kwargs.update(hf_config.get_tokenizer_loading_kwargs())
+    else:
+        tokenizer_kwargs['local_files_only'] = True
+
     tokenizer = AutoTokenizer.from_pretrained(
         args.base_model,
-        local_files_only=True,  # 强制使用本地文件
-        trust_remote_code=True
+        **tokenizer_kwargs
     )
-    
-    # 加载候选模型
+
+    # Load candidate models
     candidate_models = []
     for i, model_to_merge in enumerate(models_to_merge):
         print(f"Loading candidate model {i+1}/{len(models_to_merge)}: {os.path.basename(model_to_merge)}")
         candidate_models.append(AutoModelForCausalLM.from_pretrained(
-            model_to_merge, 
-            torch_dtype=torch.bfloat16,
-            local_files_only=True,  # 强制使用本地文件
-            trust_remote_code=True
+            model_to_merge,
+            **model_kwargs
         ).to(device))
     merging_engine = MergingMethod(merging_method_name=args.merge_method)
     if args.weight_mask_rates is not None:

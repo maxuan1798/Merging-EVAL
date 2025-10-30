@@ -37,6 +37,7 @@ try:
     import torch
     from merge import MergingMethod
     from transformers import AutoModelForCausalLM, AutoTokenizer
+    from src.config import get_hf_config
     MERGING_AVAILABLE = True
 except ImportError as e:
     logger.error(f"Failed to import merging modules: {e}")
@@ -146,7 +147,10 @@ def merge_models():
         "use_gpu": true,
         "param_value_mask_rate": 0.8,
         "weight_mask_rates": [0.5, 0.5],
-        "exclude_param_names_regex": []
+        "exclude_param_names_regex": [],
+        "hf_token": "optional_hf_token",
+        "use_hf_auth": false,
+        "local_files_only": false
     }
     """
     if not MERGING_AVAILABLE:
@@ -200,20 +204,50 @@ def execute_merging(job):
 
         logger.info(f"Starting merge for job {job.job_id}: {params['merge_method']}")
 
+        # Initialize HF configuration
+        hf_config = get_hf_config(
+            token=params.get('hf_token'),
+            use_auth=params.get('use_hf_auth', False)
+        )
+
+        # Prepare model loading kwargs
+        model_kwargs = {
+            'torch_dtype': torch.bfloat16,
+            'trust_remote_code': True
+        }
+
+        # Add authentication kwargs if needed
+        if not params.get('local_files_only', False):
+            model_kwargs.update(hf_config.get_model_loading_kwargs())
+        else:
+            model_kwargs['local_files_only'] = True
+            logger.info("Running in local files only mode")
+
+        # Add authentication info to log
+        if hf_config.should_use_auth():
+            logger.info("Using Hugging Face authentication")
+            if hf_config.get_token():
+                logger.info("HF token provided")
+
         # Load models
         device = "cuda" if params.get('use_gpu', False) else "cpu"
 
         logger.info(f"Loading base model: {params['base_model']}")
         base_model = AutoModelForCausalLM.from_pretrained(
             params['base_model'],
-            torch_dtype=torch.bfloat16,
-            trust_remote_code=True
+            **model_kwargs
         ).to(device)
 
         # Load tokenizer
+        tokenizer_kwargs = {'trust_remote_code': True}
+        if not params.get('local_files_only', False):
+            tokenizer_kwargs.update(hf_config.get_tokenizer_loading_kwargs())
+        else:
+            tokenizer_kwargs['local_files_only'] = True
+
         tokenizer = AutoTokenizer.from_pretrained(
             params['base_model'],
-            trust_remote_code=True
+            **tokenizer_kwargs
         )
 
         # Load models to merge
@@ -222,8 +256,7 @@ def execute_merging(job):
             logger.info(f"Loading model {i+1}: {model_path}")
             model = AutoModelForCausalLM.from_pretrained(
                 model_path,
-                torch_dtype=torch.bfloat16,
-                trust_remote_code=True
+                **model_kwargs
             ).to(device)
             models_to_merge.append(model)
 
