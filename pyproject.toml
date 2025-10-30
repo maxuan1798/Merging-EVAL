@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "merging-eval"
-version = "0.1.0"
+version = "0.1.1"
 description = "Model Merging Scaling Laws in Large Language Models - Empirical scaling laws for language model merging measured by cross-entropy"
 readme = "README.md"
 license = {file = "LICENSE"}
