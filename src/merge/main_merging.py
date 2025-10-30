@@ -3,7 +3,7 @@ import os
 
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
-from merging_methods import MergingMethod
+from .merging_methods import MergingMethod
 
 
 def main():

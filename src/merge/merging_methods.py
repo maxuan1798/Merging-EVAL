@@ -5,9 +5,9 @@ import torch
 import torch.nn as nn
 import re
 import gc
-from task_vector import TaskVector
-from utils import get_param_names_to_merge, get_modules_to_merge
-from mask_weights_utils import mask_model_weights
+from .task_vector import TaskVector
+from .utils import get_param_names_to_merge, get_modules_to_merge
+from .mask_weights_utils import mask_model_weights
 
 class FlopsCounter:
     def __init__(self):

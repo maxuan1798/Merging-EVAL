@@ -1,0 +1,18 @@
+# Include package data
+include LICENSE
+include README.md
+include requirements*.txt
+include ENV.txt
+
+# Include data files
+recursive-include data *
+
+# Include script files
+recursive-include scripts *.sh
+recursive-include scripts *.py
+
+# Include documentation
+recursive-include docs *
+
+# Include test files
+recursive-include tests *
