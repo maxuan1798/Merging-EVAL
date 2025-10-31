@@ -4,7 +4,7 @@ import os
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from .merging_methods import MergingMethod
-from ..config import get_hf_config
+from .config import get_hf_config
 
 
 def main():

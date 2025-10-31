@@ -37,7 +37,7 @@ try:
     import torch
     from merge import MergingMethod
     from transformers import AutoModelForCausalLM, AutoTokenizer
-    from src.config import get_hf_config
+    from merge.config import get_hf_config
     MERGING_AVAILABLE = True
 except ImportError as e:
     logger.error(f"Failed to import merging modules: {e}")
