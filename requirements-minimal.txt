@@ -6,7 +6,7 @@
 torch>=2.0.0,<2.2.0
 
 # 数值计算
-numpy>=1.24.0
+numpy==1.26.4
 
 # HuggingFace生态系统
 transformers>=4.30.0,<4.40.0
