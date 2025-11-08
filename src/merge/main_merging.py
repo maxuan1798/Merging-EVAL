@@ -30,6 +30,10 @@ def main():
         local_files_only=True,  # 强制使用本地文件
         trust_remote_code=True
     )
+
+    # 注入默认 chat_template 如果没有设置
+    from .chat_templates import inject_default_chat_template
+    tokenizer = inject_default_chat_template(tokenizer, args.base_model)
     
     # 加载候选模型
     candidate_models = []

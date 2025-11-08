@@ -13,6 +13,11 @@ import swanlab
 import requests
 import time
 from urllib.parse import urlparse
+import sys
+
+# Add src directory to path to import chat_templates
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+from merge.chat_templates import inject_default_chat_template
 
 def extract_model_name(model_path: str) -> str:
     """
@@ -185,7 +190,6 @@ def fix_tokenizer_padding(tokenizer):
             tokenizer.add_special_tokens({'pad_token': '[PAD]'})
             print("Added [PAD] as special token")
     return tokenizer
-
 
 def fix_model_config(model_path):
     """Fix model configuration issues, especially RoPE config."""
@@ -546,6 +550,9 @@ if __name__ == "__main__":
         
         # Fix tokenizer padding issues
         tokenizer = fix_tokenizer_padding(tokenizer)
+
+        # 注入默认 chat_template 如果没有设置
+        tokenizer = inject_default_chat_template(tokenizer, args.model)
 
         # Adjust max_length based on model's max position embeddings
         model_max_length = getattr(model.config, 'n_positions', None) or \
