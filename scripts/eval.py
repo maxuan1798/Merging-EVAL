@@ -754,16 +754,16 @@ if __name__ == "__main__":
         
         # Send callback if enabled
         # Collect hardware info and inference params for callback
-    hardware_info = get_hardware_info()
-    inference_params = {
-        "temperature": 1.0,
-        "max_new_tokens": 0,
-        "top_p": 1.0,
-        "top_k": 0,
-        "repetition_penalty": 1.0
-    }
+        hardware_info = get_hardware_info()
+        inference_params = {
+            "temperature": 1.0,
+            "max_new_tokens": 0,
+            "top_p": 1.0,
+            "top_k": 0,
+            "repetition_penalty": 1.0
+        }
 
-    if callback_enabled:
+        if callback_enabled:
             try:
                 # Prepare evaluator scores from individual problem results
                 evaluator_scores = {}
@@ -793,16 +793,16 @@ if __name__ == "__main__":
         
         # Send failure callback if enabled
         # Collect hardware info and inference params for callback
-    hardware_info = get_hardware_info()
-    inference_params = {
-        "temperature": 1.0,
-        "max_new_tokens": 0,
-        "top_p": 1.0,
-        "top_k": 0,
-        "repetition_penalty": 1.0
-    }
+        hardware_info = get_hardware_info()
+        inference_params = {
+            "temperature": 1.0,
+            "max_new_tokens": 0,
+            "top_p": 1.0,
+            "top_k": 0,
+            "repetition_penalty": 1.0
+        }
 
-    if callback_enabled:
+        if callback_enabled:
             try:
                 send_callback(
                     callback_url=args.callback_url,
