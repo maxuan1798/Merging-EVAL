@@ -62,6 +62,7 @@ def extract_model_name(model_path: str) -> str:
 def send_callback(callback_url: str, task_id: str, model_id: str, benchmark_id: str,
                   status: str, score: float, evaluator_scores: dict = None,
                   error_message: str = None, signature: str = None, api_key: str = None,
+                  hardware_info: dict = None, inference_params: dict = None,
                   max_retries: int = 3):
     """
     Send evaluation callback to specified URL
@@ -90,7 +91,9 @@ def send_callback(callback_url: str, task_id: str, model_id: str, benchmark_id: 
         "status": status,
         "score": score,
         "evaluator_scores": evaluator_scores,
-        "error_message": error_message
+        "error_message": error_message,
+        "hardware_info": hardware_info,
+        "inference_params": inference_params
     }
     
     # Prepare headers
@@ -391,6 +394,24 @@ class EvalDataset(Dataset):
         }
 
 
+def get_hardware_info():
+    info = {
+        "inference_framework": "transformers",
+        "gpu_count": torch.cuda.device_count()
+    }
+    if torch.cuda.is_available():
+        info["gpu_type"] = torch.cuda.get_device_name(0)
+        try:
+            # Convert bytes to GB
+            total_mem = torch.cuda.get_device_properties(0).total_memory / (1024**3)
+            info["gpu_memory"] = f"{total_mem:.1f}GB"
+        except:
+            info["gpu_memory"] = "Unknown"
+    else:
+        info["gpu_type"] = "CPU"
+        info["gpu_memory"] = "N/A"
+    return info
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type=str, default="/path/to/pretrained-model")
@@ -459,6 +480,16 @@ if __name__ == "__main__":
     model_id = args.model_id or extract_model_name(args.model)
     benchmark_id = args.benchmark_id or os.path.basename(args.dataset)
     
+    # Collect hardware info and inference params for callback
+    hardware_info = get_hardware_info()
+    inference_params = {
+        "temperature": 1.0,
+        "max_new_tokens": 0,
+        "top_p": 1.0,
+        "top_k": 0,
+        "repetition_penalty": 1.0
+    }
+
     if callback_enabled:
         print(f"Callback enabled: {args.callback_url}")
         # Use experiment_name as signature if not provided explicitly
@@ -722,7 +753,17 @@ if __name__ == "__main__":
             swanlab.finish()
         
         # Send callback if enabled
-        if callback_enabled:
+        # Collect hardware info and inference params for callback
+    hardware_info = get_hardware_info()
+    inference_params = {
+        "temperature": 1.0,
+        "max_new_tokens": 0,
+        "top_p": 1.0,
+        "top_k": 0,
+        "repetition_penalty": 1.0
+    }
+
+    if callback_enabled:
             try:
                 # Prepare evaluator scores from individual problem results
                 evaluator_scores = {}
@@ -740,7 +781,9 @@ if __name__ == "__main__":
                     score=float(overall_loss),  # Use overall loss as main score
                     evaluator_scores=evaluator_scores,
                     signature=signature,
-                    api_key=args.api_key
+                    api_key=args.api_key,
+                    hardware_info=hardware_info,
+                    inference_params=inference_params
                 )
             except Exception as callback_error:
                 print(f"Error sending success callback: {callback_error}")
@@ -749,7 +792,17 @@ if __name__ == "__main__":
         print(f"Evaluation failed with error: {e}")
         
         # Send failure callback if enabled
-        if callback_enabled:
+        # Collect hardware info and inference params for callback
+    hardware_info = get_hardware_info()
+    inference_params = {
+        "temperature": 1.0,
+        "max_new_tokens": 0,
+        "top_p": 1.0,
+        "top_k": 0,
+        "repetition_penalty": 1.0
+    }
+
+    if callback_enabled:
             try:
                 send_callback(
                     callback_url=args.callback_url,
@@ -760,7 +813,9 @@ if __name__ == "__main__":
                     score=0.0,
                     error_message=str(e),
                     signature=signature,
-                    api_key=args.api_key
+                    api_key=args.api_key,
+                    hardware_info=hardware_info,
+                    inference_params=inference_params
                 )
             except Exception as callback_error:
                 print(f"Error sending failure callback: {callback_error}")
